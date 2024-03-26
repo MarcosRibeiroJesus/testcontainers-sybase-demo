@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  sybase:
+    container_name: sybase
+    image: "ifnazar/sybase_15_7:latest"
+    ports:
+      - "5000:5000"
+    hostname: dksybase
+    command: ["bash", "/sybase/start"]
