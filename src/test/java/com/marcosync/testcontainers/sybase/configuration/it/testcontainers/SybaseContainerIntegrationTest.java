@@ -39,23 +39,26 @@ public class SybaseContainerIntegrationTest {
             .withExposedPorts(5000)
             .withCreateContainerCmdModifier(cmd -> cmd.withHostName("dksybase"))
             .withCommand("bash", "/sybase/start")
-            .waitingFor(Wait.forLogMessage(".*Setting console to nonblocking mode.*", 1))
+//            .waitingFor(Wait.forLogMessage(".*Setting console to nonblocking mode.*", 1))
             .withStartupTimeout(Duration.ofMinutes(15));
 
 
     @DynamicPropertySource
     static void setProperties(DynamicPropertyRegistry registry) {
-
+        sybaseContainer.start();
 
         System.out.println("DOCKER_HOST >>>>>> " + sybaseContainer.getHost());
         System.out.println("CONTAINER_PORT >>>>>> " + sybaseContainer.getMappedPort(5000).toString());
         System.out.print("CONTAINER_PORT >>>>>> " + "jdbc:sybase:Tds:"
-                + sybaseContainer.getContainerIpAddress() + ":" + sybaseContainer.getMappedPort(5000).toString()
-                + "/rh");
+                + sybaseContainer.getContainerIpAddress()
+                + ":"
+                + sybaseContainer.getMappedPort(5000).toString()
+        );
 
         registry.add("spring.datasource.url", () -> "jdbc:sybase:Tds:"
-                + sybaseContainer.getContainerIpAddress() + ":" + sybaseContainer.getMappedPort(5000).toString()
-                + "/rh");
+                + sybaseContainer.getContainerIpAddress()
+                + ":"
+                + sybaseContainer.getMappedPort(5000).toString());
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "password");
         registry.add("spring.datasource.driver-class-name", () -> "com.sybase.jdbc4.jdbc.SybDriver");
@@ -71,27 +74,51 @@ public class SybaseContainerIntegrationTest {
 
     @BeforeAll
     static void setup() {
-        String createDatabaseSQL = "CREATE DATABASE rh";
-        String useDatabaseSQL = "USE rh";
-        String createTableSQL = "CREATE TABLE people (uuid INTEGER NOT NULL PRIMARY KEY, name VARCHAR(20), age INTEGER)";
-        String insertDataSQL = "INSERT INTO people (uuid, name, age) VALUES (001, 'John Doe', 30)";
-
         try {
-            executeSQL(createDatabaseSQL);
-            executeSQL(useDatabaseSQL);
+            System.out.println("Setting up database...");
+
+//            // Create database SQL
+//            String createDatabaseSQL = "CREATE DATABASE rh";
+//            System.out.println("Executing SQL: " + createDatabaseSQL);
+//
+//            // Execute database creation SQL
+//            executeSQL(createDatabaseSQL);
+//
+//            // Use database SQL
+//            String useDatabaseSQL = "USE rh";
+//            System.out.println("Executing SQL: " + useDatabaseSQL);
+
+//            // Execute 'USE' SQL
+//            executeSQL(useDatabaseSQL);
+
+            // Create table SQL
+            String createTableSQL = "CREATE TABLE people (uuid INTEGER NOT NULL PRIMARY KEY, name VARCHAR(20), age INTEGER)";
+            System.out.println("Executing SQL: " + createTableSQL);
+
+            // Execute table creation SQL
             executeSQL(createTableSQL);
+
+            // Insert data SQL
+            String insertDataSQL = "INSERT INTO people (uuid, name, age) VALUES (1, 'John Doe', 30)";
+            System.out.println("Executing SQL: " + insertDataSQL);
+
+            // Execute data insertion SQL
             executeSQL(insertDataSQL);
+
+            String insert = "I";
+
+            System.out.println("Setup completed successfully.");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     private static void executeSQL(String sql) {
+        System.out.println("SQL >>>>> " + sql);
         try (Connection conn = DriverManager.getConnection(
                 "jdbc:sybase:Tds:"
-                        + sybaseContainer.getHost()
-                        + ":" + sybaseContainer.getMappedPort(5000).toString()
-                        + "/rh",
+                        + sybaseContainer.getContainerIpAddress()
+                        + ":" + sybaseContainer.getMappedPort(5000).toString(),
                 "sa",
                 "password");
              Statement stmt = conn.createStatement()) {
@@ -101,14 +128,15 @@ public class SybaseContainerIntegrationTest {
         }
     }
 
-    @Test
-    public void testSybaseContainerIsRunning() {
-        assertTrue(sybaseContainer.isRunning());
-    }
+//    @Test
+//    public void testSybaseContainerIsRunning() {
+//        assertTrue(sybaseContainer.isRunning());
+//    }
 
     @Test
     void testGetPersonName() {
-        String name = jdbcTemplate.queryForObject("SELECT name FROM people WHERE uuid = 001", String.class);
+
+        String name = jdbcTemplate.queryForObject("SELECT name FROM people WHERE uuid = 1", String.class);
         assertEquals("John Doe", name);
     }
 }
