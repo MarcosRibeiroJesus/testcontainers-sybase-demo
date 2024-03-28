@@ -4,11 +4,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -45,25 +45,18 @@ public class SybaseContainerIntegrationTest {
 
     @DynamicPropertySource
     static void setProperties(DynamicPropertyRegistry registry) {
-        sybaseContainer.start();
-
-        System.out.println("DOCKER_HOST >>>>>> " + sybaseContainer.getHost());
-        System.out.println("CONTAINER_PORT >>>>>> " + sybaseContainer.getMappedPort(5000).toString());
-        System.out.print("CONTAINER_PORT >>>>>> " + "jdbc:sybase:Tds:"
-                + sybaseContainer.getContainerIpAddress()
-                + ":"
-                + sybaseContainer.getMappedPort(5000).toString()
-        );
+//        sybaseContainer.start();
 
         registry.add("spring.datasource.url", () -> "jdbc:sybase:Tds:"
                 + sybaseContainer.getContainerIpAddress()
                 + ":"
-                + sybaseContainer.getMappedPort(5000).toString());
+                + sybaseContainer.getMappedPort(5000).toString()
+                + "/master");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "password");
         registry.add("spring.datasource.driver-class-name", () -> "com.sybase.jdbc4.jdbc.SybDriver");
         registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.SybaseASE157Dialect");
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
         registry.add("spring.jpa.hibernate.show-sql", () -> "true");
         registry.add("spring.jpa.hibernate.format-sql", () -> "true");
         registry.add("logging.level.org.hibernate", () -> "trace");
@@ -77,35 +70,11 @@ public class SybaseContainerIntegrationTest {
         try {
             System.out.println("Setting up database...");
 
-//            // Create database SQL
-//            String createDatabaseSQL = "CREATE DATABASE rh";
-//            System.out.println("Executing SQL: " + createDatabaseSQL);
-//
-//            // Execute database creation SQL
-//            executeSQL(createDatabaseSQL);
-//
-//            // Use database SQL
-//            String useDatabaseSQL = "USE rh";
-//            System.out.println("Executing SQL: " + useDatabaseSQL);
-
-//            // Execute 'USE' SQL
-//            executeSQL(useDatabaseSQL);
-
-            // Create table SQL
-            String createTableSQL = "CREATE TABLE people (uuid INTEGER NOT NULL PRIMARY KEY, name VARCHAR(20), age INTEGER)";
-            System.out.println("Executing SQL: " + createTableSQL);
-
-            // Execute table creation SQL
+            String createTableSQL = "CREATE TABLE people (uuid INTEGER PRIMARY KEY, name VARCHAR(20), age INTEGER)";
             executeSQL(createTableSQL);
 
-            // Insert data SQL
             String insertDataSQL = "INSERT INTO people (uuid, name, age) VALUES (1, 'John Doe', 30)";
-            System.out.println("Executing SQL: " + insertDataSQL);
-
-            // Execute data insertion SQL
             executeSQL(insertDataSQL);
-
-            String insert = "I";
 
             System.out.println("Setup completed successfully.");
         } catch (Exception e) {
@@ -114,27 +83,33 @@ public class SybaseContainerIntegrationTest {
     }
 
     private static void executeSQL(String sql) {
-        System.out.println("SQL >>>>> " + sql);
         try (Connection conn = DriverManager.getConnection(
                 "jdbc:sybase:Tds:"
                         + sybaseContainer.getContainerIpAddress()
-                        + ":" + sybaseContainer.getMappedPort(5000).toString(),
+                        + ":" + sybaseContainer.getMappedPort(5000).toString()
+                        + "/master",
                 "sa",
                 "password");
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
+            stmt.execute("commit");
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-//    @Test
-//    public void testSybaseContainerIsRunning() {
-//        assertTrue(sybaseContainer.isRunning());
-//    }
+    @Test
+    public void testSybaseContainerIsRunning() {
+        assertTrue(sybaseContainer.isRunning());
+    }
+
+    @Autowired
+    private Environment environment;
 
     @Test
     void testGetPersonName() {
+        String dataSourceUrl = environment.getProperty("spring.datasource.url");
+        System.out.println("Current DataSource URL: " + dataSourceUrl);
 
         String name = jdbcTemplate.queryForObject("SELECT name FROM people WHERE uuid = 1", String.class);
         assertEquals("John Doe", name);
